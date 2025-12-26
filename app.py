@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from services.documents import Documents
 
 app = Flask(__name__)
-app.run(port=5000)
 load_dotenv()
 
 @app.route('/')

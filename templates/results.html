@@ -1,0 +1,39 @@
+<div class="w-100">
+    <div class="d-flex p-2 bd-highlight">
+        <h2><b>{{ filename }}</b></h2>
+    </div>
+    <div class="d-flex p-2 bd-highlight">   
+        <table class="table">
+            <thead class="thead-dark">
+                <tr class="d-flex">
+                    <th class="col-1">#</th>
+                    <th class="col-4 text-center">Summary</th>
+                    <th class="col-4 text-center">Timeline</th>
+                    <th class="col-3 text-center">Directions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for page in resume %}
+                <tr class="d-flex">
+                    <th class="col-1 text-justify">{{ page }}</th>
+                    <td class="col-4 text-justify">{{ resume[page]["summary"] }}</td>
+                    <td class="col-4 text-justify">    
+                        <ul>
+                            {% for date, description in resume[page]["timeline"].items() %}
+                            <li>{{ date }} - {{ description }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td class="col-3 text-justify">
+                        <ul>
+                            {% for direction in resume[page]["directions"] %}
+                            <li>{{ direction }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -3,6 +3,7 @@ import os
 
 from flask import Flask, request
 from flask import render_template
+from flask import Response
 import json
 from dotenv import load_dotenv
 from services.documents import Documents
@@ -21,9 +22,14 @@ def upload_file():
         
         if 'file' not in request.files:
             return 'No file part'
+            
         file = request.files['file']
         if file.filename == '':
-            return 'No selected file'
+            return 'No file selected'
+        
+        if not file.filename.lower().endswith('.json'):
+            return 'Invalid file type. Only .json files are allowed'
+
         if file:
             filename = file.filename
             content_type = file.content_type
@@ -34,17 +40,10 @@ def upload_file():
             filepath = os.path.join(upload_folder, filename)
             file.save(filepath)
 
-            
-            try:
-                documents = Documents()
-                json_data = documents.convert_documents_to_json(filepath)
-                pages = documents.convert_json_to_pages(json_data)
-                resume = documents.analize_document(pages, modelSelect)
-                
-                if isinstance(resume, str):
-                    return render_template('error.html', error=resume)
-                    
-                return render_template('results.html', resume=resume, filename=filename)
-            except Exception as e:
-                return render_template('error.html', error=str(e))
-    
+            documents = Documents()
+            return Response(documents.generate_stream(filepath, modelSelect), mimetype='text/plain')
+        else:
+            return 'No file selected'
+
+    else:
+        return 'Invalid request method'

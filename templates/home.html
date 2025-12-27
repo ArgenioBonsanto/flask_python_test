@@ -5,7 +5,7 @@
 
 <div class="d-flex flex-row bd-highlight mb-3">
     <div class="p-2 bd-highlight">
-        <div class="card" style="width: 28rem;">
+        <div class="card card-file">
             <div class="card-body">
                 <h5 class="card-title">Upload a document</h5>
                 <p class="card-text">Please choose a document to analize.</p>
@@ -15,26 +15,58 @@
                         <label class="custom-file-label" for="customFile"></label>
                     </div>
                     <div>
-                          <select class="custom-select" id="modelSelect">
+                          <select class="custom-select mt-2" id="modelSelect">
                             <option selected value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
                             <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                             <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                             <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
                             <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
                           </select>
                     </div>
                     <div class="text-center">
-                        <input id="uploadFile" type="submit" class="btn btn-primary mt-2" value="upload">
+                        <input id="uploadFile" type="submit" class="btn btn-primary mt-2" value="Upload">
                     </div>
                 </form>
             </div>
         </div>
+
+        <div class="card card-file">
+            <div class="card-body">
+                <h5 class="card-title">Extra information:</h5>
+                <div id="resultInteres" class="w-100">
+                    <table class="table table-sm table-bordered">
+                        <tbody> 
+                            <tr class="d-flex">
+                                <th class="col-6">Total Pages</th>
+                                <td class="col-6" id="extra-num-pages"></td>
+                            </tr>
+                            <tr class="d-flex">
+                                <th class="col-6">Width</th>
+                                <td class="col-6" id="extra-width"></td>
+                            </tr>
+                            <tr class="d-flex">
+                                <th class="col-6">Height</th>
+                                <td class="col-6" id="extra-height"></td>
+                            </tr>
+                            <tr class="d-flex">
+                                <th class="col-6">Unit</th>
+                                <td class="col-6" id="extra-unit"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="p-2 bd-highlight flex-grow-1 d-flex justify-content-center align-items-center" id="results">
+    <div class="p-2 bd-highlight flex-grow-1 d-flex flex-column align-items-center" id="results">
+        <div id="tableResults" class="w-100">
+            {% include 'results.html' %}
+        </div>
         <div class="spinner-border text-success d-none" id="spinner" role="status">
             <span class="sr-only">Loading...</span>
         </div>
     </div>
-</div>
 
 {% endblock %}

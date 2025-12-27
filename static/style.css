@@ -9,3 +9,9 @@
 .background-color-menu {
     background-color: #022024;
 }
+
+.card-file{
+    width: 28rem;
+    margin-top: 0.6em;
+    margin-left: 1em;
+}

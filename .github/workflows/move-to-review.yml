@@ -18,7 +18,7 @@ jobs:
       - name: Get Issue Id from Branch
         id: get-issue-id
         run: |
-          # Extrae el número de la rama (ej: 21 de 21-add-cicd)
+          # Extrae el número de issue del nombre de la rama (ej: "21" de "21-feat")
           BRANCH_NAME="${{ github.head_ref }}"
           ISSUE_ID=$(echo $BRANCH_NAME | cut -d'-' -f1)
           echo "issueId=$ISSUE_ID" >> $GITHUB_OUTPUT
@@ -52,28 +52,28 @@ jobs:
             }`;
             const result = await github.graphql(query, { user: process.env.USER_NAME });
             
-            // 1. Buscamos el proyecto que se llame exactamente "mary"
+            // 1. Busca el proyecto llamado exactamente "mary"
             const project = result.user.projectsV2.nodes.find(p => p.title === "mary");
             if (!project) {
-              core.setFailed("No se encontró un proyecto con el nombre 'mary'");
+              console.log("No se encontró el proyecto 'mary'. Verifique el nombre.");
               return;
             }
 
-            // 2. Buscamos la ficha dentro de ese proyecto
+            // 2. Busca la ficha del issue dentro del proyecto
             const targetNumber = parseInt(process.env.ISSUE_NUMBER);
             const item = project.items.nodes.find(i => i.content && i.content.number === targetNumber);
             
             if (item) {
-              console.log(`Ficha encontrada en proyecto '${project.title}': ${item.id}`);
+              console.log(`¡Ficha encontrada! Item ID: ${item.id}`);
               core.setOutput('cardTicketId', item.id);
               core.setOutput('projectId', project.id);
             } else {
-              console.log(`El issue #${targetNumber} no está en el proyecto 'mary'`);
+              console.log(`El issue #${targetNumber} no está asignado al proyecto 'mary' en GitHub.`);
             }
 
       - name: Move to In Review
-        # Solo se ejecuta si encontramos la ficha
-        if: steps.getCardId.outputs.cardTicketId != ''
+        # Solo se ejecuta si el output no es nulo ni una cadena vacía
+        if: steps.getCardId.outputs.cardTicketId != null && steps.getCardId.outputs.cardTicketId != ''
         env:
           PROJECT_ID: ${{ steps.getCardId.outputs.projectId }}
           FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}

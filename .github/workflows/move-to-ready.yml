@@ -1,0 +1,49 @@
+name: Move card to Ready (Merge)
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  move-to-ready:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Move Card to Ready
+        env:
+          GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
+          OWNER: "ArgenioBonsanto"
+          PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
+          FIELD_ID: "PVTSSF_lAHOAOgtSc4BLX36zg693Oo" 
+          READY_OPTION_ID: "094bba1a" 
+        run: |
+          # 1. Extraer número de issue de la rama
+          # github.head_ref sigue funcionando aquí para identificar la rama origen
+          ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
+          echo "Procesando Merge de Issue #$ISSUE_NUM..."
+
+          # 2. Buscar el ITEM_ID
+          ITEM_ID=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on ProjectV2 {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue { number }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f id="$PROJECT_ID" --jq ".data.node.items.nodes[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
+
+          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
+            echo "Aviso: No se encontró ficha en el proyecto para el issue #$ISSUE_NUM"
+            exit 0
+          fi
+
+          # 3. Mover a la columna 'Ready'
+          gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$READY_OPTION_ID"
+          
+          echo "¡Misión cumplida! La tarea está en Ready 🚀"

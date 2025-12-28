@@ -6,7 +6,6 @@ on:
 jobs:
   move-to-review:
     runs-on: ubuntu-latest
-    if: github.head_ref != 'main' && github.head_ref != 'develop'
     steps:
       - name: Generate token
         id: generate_token
@@ -15,27 +14,9 @@ jobs:
           app_id: ${{ secrets.PROJECTS_APP_ID }}
           private_key: ${{ secrets.PROJECTS_APP_PEM }}
 
-      - name: Find and Move Card
+      - name: Debug Project List
         env:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
-          OWNER: "ArgenioBonsanto"
-          # PEGA AQUÍ EL ID QUE OBTUVISTE EN EL PASO 1
-          PROJECT_ID: "PVT_kwHOAOgtSc4BLX36" 
         run: |
-          # 1. Obtener número de issue de la rama
-          ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
-          echo "Procesando Issue #$ISSUE_NUM..."
-
-          # 2. Buscar el ID de la ficha usando el ID Global del proyecto
-          ITEM_ID=$(gh project item-list "$PROJECT_ID" --owner "$OWNER" --format json --jq ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
-
-          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
-            echo "ERROR: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto."
-            exit 1
-          fi
-          echo "Ficha localizada: $ITEM_ID"
-
-          # 3. Mover a 'In review' (basado en image_1b4bb4.png)
-          gh project item-edit --id "$ITEM_ID" --field "Status" --project-id "$PROJECT_ID" --owner "$OWNER" --single-select-option "In review"
-          
-          echo "¡Movimiento exitoso!"
+          echo "Buscando Proyectos de ArgenioBonsanto..."
+          gh project list --owner "ArgenioBonsanto" --format json --jq '.projects[] | "Nombre: \(.title) | ID: \(.id)"'

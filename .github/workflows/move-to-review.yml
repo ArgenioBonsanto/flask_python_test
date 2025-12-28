@@ -22,14 +22,15 @@ jobs:
           BRANCH: ${{ github.head_ref }}
         with:
           script: |
-            // Esto toma el "19" de una rama tipo "19-add-tests"
-            const issueId = process.env.BRANCH.split('-')[0]
-            core.setOutput('issueId', issueId)
+            const branchName = process.env.BRANCH;
+            const issueId = branchName.split('-')[0];
+            console.log(`Buscando Issue ID: ${issueId}`);
+            core.setOutput('issueId', issueId);
 
       - name: Get project card ID
         id: getCardId
         env:
-          ORG_NAME: "ArgenioBonsanto"
+          OWNER_NAME: "ArgenioBonsanto"
           REPO_NAME: "flask_python_test"
           ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
@@ -38,19 +39,32 @@ jobs:
             query ($owner: String!, $repo: String!, $issue: Int!) {
               repository(owner: $owner, name: $repo) {
                 issue(number: $issue) {
-                  projectItems(first: 1) {
-                    nodes { id }
+                  projectItems(first: 10) {
+                    nodes {
+                      id
+                      project { title }
+                    }
                   }
                 }
               }
-            }' -f owner=$ORG_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
+            }' -f owner=$OWNER_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
           
-          # Extraemos el ID sin comillas
-          echo "cardTicketId=$(jq -r '.data.repository.issue.projectItems.nodes[0].id' issue_info.json)" >> $GITHUB_OUTPUT
+          # Debug: Ver contenido del JSON en los logs
+          cat issue_info.json
+          
+          # Buscamos el ID filtrando exactamente por el nombre "mary"
+          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[] | select(.project.title=="mary") | .id' issue_info.json)
+          
+          if [ -z "$CARD_ID" ] || [ "$CARD_ID" == "null" ]; then
+            echo "Error: No se encontró la ficha #$ISSUE_ID en el proyecto mary."
+            echo "cardTicketId=null" >> $GITHUB_OUTPUT
+          else
+            echo "Ficha encontrada con ID: $CARD_ID"
+            echo "cardTicketId=$CARD_ID" >> $GITHUB_OUTPUT
+          fi
 
       - name: Move to In Review
-        # Solo se ejecuta si encontramos una tarjeta vinculada
-        if: steps.getCardId.outputs.cardTicketId != 'null'
+        if: steps.getCardId.outputs.cardTicketId != 'null' && steps.getCardId.outputs.cardTicketId != ''
         env:
           PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
           FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}

@@ -1,11 +1,16 @@
 import os
 import json
+import time
 
 from google import genai
 from google.genai import types
 from google.genai import errors
 from pydantic import BaseModel, Field
 from flask import stream_with_context
+from models.others_model import OthersModel
+from models.page_model import PageModel
+from models.document_model import DocumentModel
+
 
 class Documents:
 
@@ -21,9 +26,10 @@ class Documents:
         except Exception as e:
             return f"An error occurred: {str(e)}"
 
-    def convert_json_to_pages(self, data):
-        pages = {}
+    def convert_json_to_documents(self, data):
+        document_list = []
         for doc in data:
+            pages = []
             for page in doc.get("content", []):
                 num_page = page.get("page_number")
                 words = []
@@ -34,20 +40,26 @@ class Documents:
                     if word_info.get("confidence") < 0.6:
                         confidence_word.append(content)
                 
-                pages[num_page] = {}
-                pages[num_page]["words"] = " ".join(words)
-                pages[num_page]["others"] = {
-                    "name": page.get("name"),
-                    "confidence": confidence_word,
-                    "width": page.get("width"),
-                    "height": page.get("height"),
-                    "unit": page.get("unit"),
-                    "total_pages": len(pages)
-                }
+                others = OthersModel(name=str(doc.get("doc_id")), 
+                                    confidence=confidence_word, 
+                                    width=float(page.get("width")), 
+                                    height=float(page.get("height")), 
+                                    unit=str(page.get("unit")), 
+                                    total_pages=int(len(doc.get("content")))) 
+                
+                page_model = PageModel(page_number=num_page, 
+                                        words=words, 
+                                        others=others)
 
-        return pages
+                pages.append(page_model)
 
-    def analize_document(self, pages, model):
+            documentModel = DocumentModel(doc_id=int(doc["doc_id"]), 
+                                          pages=pages)
+            document_list.append(documentModel)
+
+        return document_list
+
+    def analize_documents(self, documents, model):
         try:
             client = genai.Client()
             temperate = 1.0 if "3" in model else 0.0 #Recomendacion de la doc
@@ -68,17 +80,21 @@ class Documents:
                 config=config_lawyer
             )
 
-            resume = {}
-            for page_num, page_content in pages.items():
-                response = chat.send_message_stream(page_content["words"])
-                text = ""
-                for chunk in response:
-                    text += str(chunk.text)
-                
-                result = json.loads(text)
-                result["page"] = page_num
-                result["others"] = page_content["others"]
-                yield json.dumps({"result": result})
+            for document in documents:
+                all_pages = document.pages
+                resume = {}
+                for page in all_pages:
+                    response = chat.send_message_stream(page.words)
+                    text = ""
+                    for chunk in response:
+                        text += str(chunk.text)
+                    
+                    result = json.loads(text)
+                    result["page"] = page.page_number
+                    result["others"] = page.others.model_dump()
+                    result["doc_id"] = document.doc_id
+                    yield json.dumps({"result": result})
+
         except errors.ClientError as e:
             yield json.dumps({"error": "You exceeded your current quota, please check your plan and billing details."})
         except Exception as e:
@@ -88,15 +104,11 @@ class Documents:
     def generate_stream(self, filepath, modelSelect):
         try:
             json_data = self.convert_documents_to_json(filepath)
-            pages = self.convert_json_to_pages(json_data)
-
-            for chunk in self.analize_document(pages, modelSelect):
+            documents = self.convert_json_to_documents(json_data)
+            for chunk in self.analize_documents(documents, modelSelect):
                 yield chunk
         except Exception as e:
             yield json.dumps({"error": str(e)})
-
-
-
 
 class Feedback(BaseModel):
     reasoning: str = Field(description="Step-by-step reasoning used to analyze the text and extract the details.")

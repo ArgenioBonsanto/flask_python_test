@@ -10,13 +10,16 @@ document.getElementById('customFile').addEventListener("change", function() {
     
 document.getElementById('uploadForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
-    const spinner = document.getElementById('spinner');
-    const tableBody = document.getElementById('tableBody');
+    if (document.getElementById("uploadFile").classList.contains("disabled")) {
+        return;
+    }
+    document.getElementById("spinner").classList.remove("d-none");
+    document.getElementById("documents").innerHTML = "";
+    document.getElementById("results").innerHTML = "";
+    document.getElementById("uploadFile").classList.add("disabled");
+
     const formData = new FormData(this);
     const modelSelect = document.getElementById('modelSelect').value;
-    
-    spinner.classList.remove('d-none');
 
     formData.append('modelSelect', modelSelect);
 
@@ -29,10 +32,13 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
+        doc_id = ""
+        first = true;
         while (true) {
             const { done, value } = await reader.read();
             if (done) {
-                spinner.classList.add('d-none');
+                document.getElementById("uploadFile").classList.remove("disabled");
+                document.getElementById("spinner").classList.add("d-none");
                 break;
             }
             const textChunk = decoder.decode(value, { stream: true });
@@ -40,49 +46,100 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                 const textChunkJson = JSON.parse(textChunk);
 
                 if ('error' in textChunkJson) {
-                    const tr = createError(textChunkJson.error);
-                    tableBody.appendChild(tr);
-                    spinner.classList.add('d-none');
+                    putError(textChunkJson.error);
                     break;
                 }
                 
-
                 for (const i in textChunkJson) {
                     const data = textChunkJson[i];
-                    document.getElementById("extra-num-pages").textContent = data.others.total_pages;
-                    document.getElementById("extra-width").textContent = data.others.width;
-                    document.getElementById("extra-height").textContent = data.others.height;
-                    document.getElementById("extra-unit").textContent = data.others.unit;
+
+                    if (data.doc_id != doc_id) {
+
+                        doc_id = data.doc_id;
+                        const card = createTableDetails(data.others.total_pages, data.others.name, doc_id);
+                        document.getElementById("documents").appendChild(card);
+                        originalTable = document.getElementById("tableResults");
+                        tableResults = originalTable.cloneNode(true);
+                        tableResults.id = "tableResults_" + doc_id;
+                        
+                        document.getElementById("results").appendChild(tableResults);
+                        if(first){
+                            tableResults.classList.remove("d-none");
+                            card.click();
+                            first = false;
+                        }
+                    }
+                    
                     const tr = document.createElement('tr');
                     tr.classList.add('d-flex');
-    
                     // Page Number
                     createTd(tr, data.page, 'col-1');
-    
                     // Summary
                     createTd(tr, data.summary, 'col-4');
-
                     // Timeline
                     createTdTimeline(tr, data.timeline, 'col-4');
-    
                     // low confidence words
                     createTdArray(tr, data.others.confidence, 'col-3');
-
-                    tableBody.appendChild(tr);
+                    document.getElementById("tableResults_" + doc_id).querySelector("#tableBody").appendChild(tr);
                 }
-                window.scrollTo(0, document.body.scrollHeight);
             } catch (e) {
-                const tr = createError(textChunk);
-                tableBody.appendChild(tr);
-                spinner.classList.add('d-none');
+                putError(textChunk);
             }
         }
     } catch (error) {
-        const tr = createError(error.message || error);
-        tableBody.appendChild(tr);
-        spinner.classList.add('d-none');
+         putError(error);
     }
 });
+
+$(document).on("click",".card-documents",function (){
+    id = $(this).attr("id")
+    $(".tables").addClass("d-none")
+    $("#tableResults_" + id).removeClass("d-none")
+})
+
+function putError(textChunk){
+    const tr = createError(textChunk);
+    originalTable = document.getElementById("tableResults");
+    tableError = originalTable.cloneNode(true);
+    tableError.classList.remove("d-none");
+    tableError.querySelector("#tableBody").appendChild(tr);
+    document.getElementById("results").appendChild(tableError);
+}
+
+function createTableDetails(totalPages, name, doc_id) {
+    const table = document.createElement('table');
+    table.className = 'table table-sm table-bordered mt-2 card-documents';
+    table.style.cursor = 'pointer';
+    table.id = doc_id;
+    table.onclick = function() {
+        document.querySelectorAll('#documents table').forEach(t => t.classList.remove('selected-table'));
+        this.classList.add('selected-table');
+    };
+    
+    trPage = createTrDetails("extra-num-pages", totalPages, "Total Pages:")
+    trName = createTrDetails("extra-name", name, "ID:")
+    const tbody = document.createElement('tbody');
+    tbody.appendChild(trName);
+    tbody.appendChild(trPage);
+    table.appendChild(tbody);
+    
+    return table;
+}
+
+function createTrDetails(id, name, title){
+    const tr = document.createElement('tr');
+    tr.className = 'd-flex';
+    const th = document.createElement('th');
+    th.className = 'col-6';
+    th.textContent = title;
+    const td = document.createElement('td');
+    td.className = 'col-6';
+    td.id = id;
+    td.textContent = name;
+    tr.appendChild(th);
+    tr.appendChild(td);
+    return tr;
+}
 
 function createTd(tr, data, col){
     const td = document.createElement('td');

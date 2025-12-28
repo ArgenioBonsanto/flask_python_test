@@ -33,7 +33,7 @@ jobs:
           OWNER_NAME: "ArgenioBonsanto"
           REPO_NAME: "flask_python_test"
           ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
-          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Usamos el token por defecto para lectura
         run: |
           gh api graphql -f query='
             query ($owner: String!, $repo: String!, $issue: Int!) {
@@ -49,17 +49,23 @@ jobs:
               }
             }' -f owner=$OWNER_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
           
-          # Debug: Ver contenido del JSON en los logs
+          echo "--- CONTENIDO DEL JSON RECIBIDO ---"
           cat issue_info.json
+          echo "-----------------------------------"
           
-          # Buscamos el ID filtrando exactamente por el nombre "mary"
-          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[] | select(.project.title=="mary") | .id' issue_info.json)
+          # Intento 1: Buscar proyecto llamado "mary"
+          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[] | select(.project.title=="mary") | .id' issue_info.json 2>/dev/null || echo "")
           
-          if [ -z "$CARD_ID" ] || [ "$CARD_ID" == "null" ]; then
-            echo "Error: No se encontró la ficha #$ISSUE_ID en el proyecto mary."
+          # Intento 2: Si el anterior falló, tomar el primero que aparezca
+          if [ -z "$CARD_ID" ]; then
+            CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[0].id // empty' issue_info.json)
+          fi
+          
+          if [ -z "$CARD_ID" ]; then
+            echo "Error: No se encontró ninguna ficha vinculada al issue #$ISSUE_ID."
             echo "cardTicketId=null" >> $GITHUB_OUTPUT
           else
-            echo "Ficha encontrada con ID: $CARD_ID"
+            echo "Ficha detectada con ID: $CARD_ID"
             echo "cardTicketId=$CARD_ID" >> $GITHUB_OUTPUT
           fi
 

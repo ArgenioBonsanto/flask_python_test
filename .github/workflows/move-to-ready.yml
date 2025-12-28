@@ -1,64 +1,49 @@
-name: Move card to Ready
+name: Move card to Ready (Merge)
 on:
   pull_request:
     types: [closed]
-    branches: [develop] # Se activa cuando el PR va hacia develop
 
 jobs:
   move-to-ready:
-    # Solo se ejecuta si el PR fue aceptado (merged), no si fue cerrado sin más
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v2
-        with:
-          app_id: ${{ secrets.PROJECTS_APP_ID }}
-          private_key: ${{ secrets.PROJECTS_APP_PEM }}
-
-      - name: Get Issue Id from Branch
-        id: get-issue-id
-        uses: actions/github-script@v7
+      - name: Move Card to Ready
         env:
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-        with:
-          script: |
-            const issueId = process.env.BRANCH.split('-')[0]
-            core.setOutput('issueId', issueId)
-
-      - name: Get project card ID
-        id: getCardId
-        env:
-          ORG_NAME: "ArgenioBonsanto"
-          REPO_NAME: "flask_python_test"
-          ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
-          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
+          OWNER: "ArgenioBonsanto"
+          PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
+          FIELD_ID: "PVTSSF_lAHOAOgtSc4BLX36zg693Oo" 
+          READY_OPTION_ID: "094bba1a" 
         run: |
-          gh api graphql -f query='
-            query ($owner: String!, $repo: String!, $issue: Int!) {
-              repository(owner: $owner, name: $repo) {
-                issue(number: $issue) {
-                  projectItems(first: 1) {
-                    nodes { id }
+          # 1. Extraer número de issue de la rama
+          # github.head_ref sigue funcionando aquí para identificar la rama origen
+          ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
+          echo "Procesando Merge de Issue #$ISSUE_NUM..."
+
+          # 2. Buscar el ITEM_ID
+          ITEM_ID=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on ProjectV2 {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue { number }
+                      }
+                    }
                   }
                 }
               }
-            }' -f owner=$ORG_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
-          echo "cardTicketId=$(jq -r '.data.repository.issue.projectItems.nodes[0].id' issue_info.json)" >> $GITHUB_OUTPUT
+            }' -f id="$PROJECT_ID" --jq ".data.node.items.nodes[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
 
-      - name: Move to Ready
-        if: steps.getCardId.outputs.cardTicketId != 'null'
-        env:
-          PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
-          FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}
-          OPTION_ID: ${{ secrets.PROJECT_READY_OPTION_ID }}
-          ITEM_ID: ${{ steps.getCardId.outputs.cardTicketId }}
-          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
-        run: |
-          gh api graphql -f query='
-          mutation ($project: ID!, $fieldId: ID!, $optionId: String!, $itemId: ID!) {
-            updateProjectV2ItemFieldValue(input: {
-              projectId: $project, fieldId: $fieldId, itemId: $itemId, value: { singleSelectOptionId: $optionId }
-            }) { projectV2Item { databaseId } }
-          }' -F project=$PROJECT_ID -F fieldId=$FIELD_ID -F optionId=$OPTION_ID -f itemId=$ITEM_ID
+          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
+            echo "Aviso: No se encontró ficha en el proyecto para el issue #$ISSUE_NUM"
+            exit 0
+          fi
+
+          # 3. Mover a la columna 'Ready'
+          gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$READY_OPTION_ID"
+          
+          echo "¡Misión cumplida! La tarea está en Ready 🚀"

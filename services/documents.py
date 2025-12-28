@@ -41,7 +41,7 @@ class Documents:
                         confidence_word.append(content)
                 
                 others = OthersModel(name=str(doc.get("doc_id")), 
-                                    confidence=confidence_word, 
+                                    confidence=list(set(confidence_word)), 
                                     width=float(page.get("width")), 
                                     height=float(page.get("height")), 
                                     unit=str(page.get("unit")), 
@@ -75,16 +75,14 @@ class Documents:
                 # temperature=temperate,
                 seed=26
             )
-            chat = client.chats.create(
-                model=model,
-                config=config_lawyer
-            )
-
             for document in documents:
                 all_pages = document.pages
-                resume = {}
                 for page in all_pages:
-                    response = chat.send_message_stream(page.words)
+                    response = client.models.generate_content_stream(
+                        model=model,
+                        contents=" ".join(page.words),
+                        config=config_lawyer
+                    )
                     text = ""
                     for chunk in response:
                         text += str(chunk.text)

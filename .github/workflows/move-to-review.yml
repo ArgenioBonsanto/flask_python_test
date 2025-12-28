@@ -22,9 +22,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
         with:
           script: |
-            const branchName = process.env.BRANCH;
-            const issueId = branchName.split('-')[0];
-            console.log(`Buscando Issue ID: ${issueId}`);
+            const issueId = process.env.BRANCH.split('-')[0];
             core.setOutput('issueId', issueId);
 
       - name: Get project card ID
@@ -33,44 +31,32 @@ jobs:
           OWNER_NAME: "ArgenioBonsanto"
           REPO_NAME: "flask_python_test"
           ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Usamos el token por defecto para lectura
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Obtenemos los items del proyecto vinculados al issue
           gh api graphql -f query='
             query ($owner: String!, $repo: String!, $issue: Int!) {
               repository(owner: $owner, name: $repo) {
                 issue(number: $issue) {
-                  projectItems(first: 10) {
-                    nodes {
-                      id
-                      project { title }
-                    }
+                  projectItems(first: 5) {
+                    nodes { id }
                   }
                 }
               }
             }' -f owner=$OWNER_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
           
-          echo "--- CONTENIDO DEL JSON RECIBIDO ---"
-          cat issue_info.json
-          echo "-----------------------------------"
-          
-          # Intento 1: Buscar proyecto llamado "mary"
-          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[] | select(.project.title=="mary") | .id' issue_info.json 2>/dev/null || echo "")
-          
-          # Intento 2: Si el anterior falló, tomar el primero que aparezca
-          if [ -z "$CARD_ID" ]; then
-            CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[0].id // empty' issue_info.json)
-          fi
+          # Extraemos el ID. Si no existe, la variable queda vacía (evitamos el texto "null")
+          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[0].id | select(. != null)' issue_info.json)
           
           if [ -z "$CARD_ID" ]; then
-            echo "Error: No se encontró ninguna ficha vinculada al issue #$ISSUE_ID."
-            echo "cardTicketId=null" >> $GITHUB_OUTPUT
+            echo "No se encontró tarjeta para el issue #$ISSUE_ID"
           else
-            echo "Ficha detectada con ID: $CARD_ID"
+            echo "Tarjeta encontrada: $CARD_ID"
             echo "cardTicketId=$CARD_ID" >> $GITHUB_OUTPUT
           fi
 
       - name: Move to In Review
-        if: steps.getCardId.outputs.cardTicketId != 'null' && steps.getCardId.outputs.cardTicketId != ''
+        if: steps.getCardId.outputs.cardTicketId != ''
         env:
           PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
           FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}

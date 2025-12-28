@@ -13,12 +13,13 @@ jobs:
           GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
           OWNER: "ArgenioBonsanto"
           PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
+          FIELD_ID: "PVTSSF_lAHOAOgtSc4BLX36zg693Oo" 
+          OPTION_ID: "98236657"
         run: |
-          # 1. Extraer número de issue (ej: 21)
           ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
-          echo "Buscando Issue #$ISSUE_NUM en Proyecto $PROJECT_ID..."
+          echo "Procesando Issue #$ISSUE_NUM..."
 
-          # 2. Buscar el ITEM_ID usando GraphQL (Evita el error de 'invalid number')
+          # Buscar el ITEM_ID (esto ya funciona en tu image_1c49ff.png)
           ITEM_ID=$(gh api graphql -f query='
             query($id: ID!) {
               node(id: $id) {
@@ -36,12 +37,12 @@ jobs:
             }' -f id="$PROJECT_ID" --jq ".data.node.items.nodes[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
 
           if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
-            echo "ERROR: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto."
+            echo "ERROR: No se encontró la ficha."
             exit 1
           fi
           echo "Ficha localizada: $ITEM_ID"
 
-          # 3. Mover a la columna 'In review'
-          gh project item-edit --id "$ITEM_ID" --field "Status" --project-id "$PROJECT_ID" --single-select-option "In review"
+          # MOVIMIENTO FINAL: Usando IDs exactos para evitar 'unknown flag: --field'
+          gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
           
-          echo "¡Movimiento exitoso!"
+          echo "¡MOVIMIENTO COMPLETADO CON ÉXITO!"

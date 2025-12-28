@@ -8,7 +8,6 @@ on:
 jobs:
   cleanup-ready-to-done:
     runs-on: ubuntu-latest
-    # Se ejecuta solo si el PR se cerró por merge y venía de la rama 'develop'
     if: github.event.pull_request.merged == true && github.head_ref == 'develop'
     steps:
       - name: Bulk Move Ready to Done
@@ -16,8 +15,8 @@ jobs:
           GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
           PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
           FIELD_ID: "PVTSSF_lAHOAOgtSc4BLX36zg693Oo"
-          READY_OPTION_ID: "TU_READY_OPTION_ID" # El ID que obtuviste antes
-          DONE_OPTION_ID: "TU_DONE_OPTION_ID"   # Obtén este con el comando de abajo
+          READY_OPTION_ID: "094bba1a" 
+          DONE_OPTION_ID: "5175619e" 
         run: |
           echo "Iniciando limpieza de tickets de Ready a Done..."
 

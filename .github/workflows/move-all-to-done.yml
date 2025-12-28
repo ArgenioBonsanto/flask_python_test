@@ -1,0 +1,54 @@
+name: Move all Ready to Done on Merge to Main
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  cleanup-ready-to-done:
+    runs-on: ubuntu-latest
+    # Se ejecuta solo si el PR se cerró por merge y venía de la rama 'develop'
+    if: github.event.pull_request.merged == true && github.head_ref == 'develop'
+    steps:
+      - name: Bulk Move Ready to Done
+        env:
+          GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
+          PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
+          FIELD_ID: "PVTSSF_lAHOAOgtSc4BLX36zg693Oo"
+          READY_OPTION_ID: "TU_READY_OPTION_ID" # El ID que obtuviste antes
+          DONE_OPTION_ID: "TU_DONE_OPTION_ID"   # Obtén este con el comando de abajo
+        run: |
+          echo "Iniciando limpieza de tickets de Ready a Done..."
+
+          # 1. Obtener los IDs de todos los items que están en estado 'Ready'
+          READY_ITEMS=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on ProjectV2 {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      fieldValueByName(name: "Status") {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          optionId
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f id="$PROJECT_ID" --jq ".data.node.items.nodes[] | select(.fieldValueByName.optionId == \"$READY_OPTION_ID\") | .id")
+
+          if [ -z "$READY_ITEMS" ]; then
+            echo "No se encontraron tickets en la columna Ready."
+            exit 0
+          fi
+
+          # 2. Iterar y mover cada ticket a 'Done'
+          for ITEM_ID in $READY_ITEMS; do
+            echo "Moviendo item $ITEM_ID a Done..."
+            gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
+          done
+
+          echo "¡Todos los tickets han sido movidos a Done! 🚀"

@@ -2,5 +2,9 @@ Flask
 Gunicorn
 python-dotenv
 pytest
+pytest-cov
+pytest-mock
+pytest-flask
 psycopg2-binary
 google-genai
+pydantic

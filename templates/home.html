@@ -34,39 +34,26 @@
 
         <div class="card card-file">
             <div class="card-body">
-                <h5 class="card-title">Extra information:</h5>
-                <div id="resultInteres" class="w-100">
-                    <table class="table table-sm table-bordered">
-                        <tbody> 
-                            <tr class="d-flex">
-                                <th class="col-6">Total Pages</th>
-                                <td class="col-6" id="extra-num-pages"></td>
-                            </tr>
-                            <tr class="d-flex">
-                                <th class="col-6">Width</th>
-                                <td class="col-6" id="extra-width"></td>
-                            </tr>
-                            <tr class="d-flex">
-                                <th class="col-6">Height</th>
-                                <td class="col-6" id="extra-height"></td>
-                            </tr>
-                            <tr class="d-flex">
-                                <th class="col-6">Unit</th>
-                                <td class="col-6" id="extra-unit"></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="d-flex align-items-center mb-2">
+                    <h5 class="card-title mb-0 mr-2">Documents:</h5> 
+                    <div class="spinner-border spinner-border-sm text-success d-none" id="spinner" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                </div>
+                <div id="documents">
+
                 </div>
             </div>
         </div>
     </div>
-    <div class="p-2 bd-highlight flex-grow-1 d-flex flex-column align-items-center" id="results">
-        <div id="tableResults" class="w-100">
-            {% include 'results.html' %}
-        </div>
-        <div class="spinner-border text-success d-none" id="spinner" role="status">
-            <span class="sr-only">Loading...</span>
-        </div>
-    </div>
 
+    <div class="p-2 bd-highlight flex-grow-1 d-flex flex-column align-items-center" id="results">
+        <!-- show tables results -->
+    </div>
+    
+    <!-- table results -->
+    <div id="tableResults" class="w-100 d-none tables">
+            {% include 'results.html' %}
+
+    </div> 
 {% endblock %}

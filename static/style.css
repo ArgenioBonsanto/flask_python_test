@@ -15,3 +15,9 @@
     margin-top: 0.6em;
     margin-left: 1em;
 }
+
+.selected-table {
+    border: 2px solid #007bff !important;
+    box-shadow: 0 0 8px rgba(0,123,255,0.5);
+    transition: all 0.2s ease;
+}

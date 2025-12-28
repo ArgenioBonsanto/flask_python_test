@@ -6,7 +6,6 @@ on:
 jobs:
   move-to-review:
     runs-on: ubuntu-latest
-    # No se ejecuta si la rama de origen es main o develop
     if: github.head_ref != 'main' && github.head_ref != 'develop'
     steps:
       - name: Generate token
@@ -19,7 +18,6 @@ jobs:
       - name: Get Issue Id from Branch
         id: get-issue-id
         run: |
-          # Extrae el número antes del guion de la rama (ej: 21 de 21-add-cicd)
           BRANCH_NAME="${{ github.head_ref }}"
           ISSUE_ID=$(echo $BRANCH_NAME | cut -d'-' -f1)
           echo "issueId=$ISSUE_ID" >> $GITHUB_OUTPUT
@@ -29,48 +27,46 @@ jobs:
         uses: actions/github-script@v7
         env:
           OWNER_NAME: "ArgenioBonsanto"
-          REPO_NAME: "flask_python_test"
-          ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
+          ISSUE_NUMBER: ${{ steps.get-issue-id.outputs.issueId }}
+          PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const query = `query($owner:String!, $repo:String!, $issue:Int!) {
-              repository(owner:$owner, name:$repo) {
-                issue(number:$issue) {
-                  projectItems(first:10) {
+            const query = `query($project:ID!) {
+              node(id: $project) {
+                ... on ProjectV2 {
+                  items(first: 100) {
                     nodes {
                       id
-                      project { title }
+                      content {
+                        ... on Issue { number }
+                        ... on PullRequest { number }
+                      }
                     }
                   }
                 }
               }
             }`;
-            const variables = {
-              owner: process.env.OWNER_NAME,
-              repo: process.env.REPO_NAME,
-              issue: parseInt(process.env.ISSUE_ID)
-            };
+            const variables = { project: process.env.PROJECT_ID };
+            const result = await github.graphql(query, variables);
             
-            try {
-              const result = await github.graphql(query, variables);
-              const items = result.repository.issue.projectItems.nodes;
-              // Buscamos específicamente el item en el proyecto llamado 'mary'
-              const targetItem = items.find(item => item.project.title === 'mary');
-              
-              if (targetItem) {
-                console.log(`ID de tarjeta encontrado: ${targetItem.id}`);
-                core.setOutput('cardTicketId', targetItem.id);
-              } else {
-                console.log("El issue no está vinculado al proyecto 'mary'");
-              }
-            } catch (error) {
-              core.setFailed(`Error en la consulta GraphQL: ${error.message}`);
+            const targetIssueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const items = result.node.items.nodes;
+            
+            // Buscamos el item cuyo contenido sea el issue con nuestro número
+            const targetItem = items.find(item => item.content && item.content.number === targetIssueNumber);
+            
+            if (targetItem) {
+              console.log(`Ficha encontrada! ID: ${targetItem.id}`);
+              core.setOutput('cardTicketId', targetItem.id);
+            } else {
+              console.log(`No se encontró el issue #${targetIssueNumber} en el proyecto.`);
+              // No establecemos output para que el siguiente paso se salte correctamente
             }
 
       - name: Move to In Review
-        # Solo se ejecuta si cardTicketId tiene un valor real y no es nulo
-        if: steps.getCardId.outputs.cardTicketId != '' && steps.getCardId.outputs.cardTicketId != null
+        # IMPORTANTE: Cambiamos la validación para que sea compatible con lo que GitHub ve en el log
+        if: steps.getCardId.outputs.cardTicketId != null && steps.getCardId.outputs.cardTicketId != ''
         env:
           PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
           FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}

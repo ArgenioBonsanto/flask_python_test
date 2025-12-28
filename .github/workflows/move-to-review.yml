@@ -15,24 +15,29 @@ jobs:
           app_id: ${{ secrets.PROJECTS_APP_ID }}
           private_key: ${{ secrets.PROJECTS_APP_PEM }}
 
-      - name: Move Card to In Review
+      - name: Find and Move Card
         env:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
           OWNER: "ArgenioBonsanto"
           PROJECT_NUM: 1
         run: |
-          # 1. Extraer número de issue de la rama
+          # 1. Extraer número de issue de la rama (ej: 21)
           ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
-          echo "Buscando ficha para el Issue #$ISSUE_NUM..."
+          echo "Procesando Issue #$ISSUE_NUM..."
 
-          # 2. Obtener el ID de la ficha (Item ID) usando la sintaxis probada
-          ITEM_ID=$(gh project item-list $PROJECT_NUM --owner "$OWNER" --format json | jq -r ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
+          # 2. Obtener el ID usando la sintaxis que te funcionó en local
+          # Usamos --jq directamente en el comando gh para mayor precisión
+          ITEM_ID=$(gh project item-list $PROJECT_NUM --owner "$OWNER" --format json --jq ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
 
-          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
-            echo "Error: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto 'mary'."
+          # 3. Validar si encontramos el ID antes de mover
+          if [ -z "$ITEM_ID" ]; then
+            echo "ERROR: No se encontró el issue #$ISSUE_NUM en el proyecto 'mary'."
             exit 1
           fi
 
-          # 3. Mover a la columna 'In review' (basado en image_1b4bb4.png)
+          echo "Ficha localizada: $ITEM_ID. Moviendo a 'In review'..."
+
+          # 4. Mover la ficha usando el nombre de la columna (Status: In review)
           gh project item-edit --id "$ITEM_ID" --field "Status" --project-number $PROJECT_NUM --owner "$OWNER" --single-select-option "In review"
-          echo "¡Movimiento completado con éxito!"
+          
+          echo "¡Movimiento exitoso!"

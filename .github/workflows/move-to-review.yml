@@ -6,7 +6,8 @@ on:
 jobs:
   move-to-review:
     runs-on: ubuntu-latest
-    if: ${{ github.head_ref != 'main' && github.head_ref != 'develop' }}
+    # No se ejecuta si la rama de origen es main o develop
+    if: github.head_ref != 'main' && github.head_ref != 'develop'
     steps:
       - name: Generate token
         id: generate_token
@@ -17,46 +18,59 @@ jobs:
 
       - name: Get Issue Id from Branch
         id: get-issue-id
-        uses: actions/github-script@v7
-        env:
-          BRANCH: ${{ github.head_ref }}
-        with:
-          script: |
-            const issueId = process.env.BRANCH.split('-')[0];
-            core.setOutput('issueId', issueId);
+        run: |
+          # Extrae el número antes del guion de la rama (ej: 21 de 21-add-cicd)
+          BRANCH_NAME="${{ github.head_ref }}"
+          ISSUE_ID=$(echo $BRANCH_NAME | cut -d'-' -f1)
+          echo "issueId=$ISSUE_ID" >> $GITHUB_OUTPUT
 
       - name: Get project card ID
         id: getCardId
+        uses: actions/github-script@v7
         env:
           OWNER_NAME: "ArgenioBonsanto"
           REPO_NAME: "flask_python_test"
           ISSUE_ID: ${{ steps.get-issue-id.outputs.issueId }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Obtenemos los items del proyecto vinculados al issue
-          gh api graphql -f query='
-            query ($owner: String!, $repo: String!, $issue: Int!) {
-              repository(owner: $owner, name: $repo) {
-                issue(number: $issue) {
-                  projectItems(first: 5) {
-                    nodes { id }
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            const query = `query($owner:String!, $repo:String!, $issue:Int!) {
+              repository(owner:$owner, name:$repo) {
+                issue(number:$issue) {
+                  projectItems(first:10) {
+                    nodes {
+                      id
+                      project { title }
+                    }
                   }
                 }
               }
-            }' -f owner=$OWNER_NAME -f repo=$REPO_NAME -F issue=$ISSUE_ID > issue_info.json
-          
-          # Extraemos el ID. Si no existe, la variable queda vacía (evitamos el texto "null")
-          CARD_ID=$(jq -r '.data.repository.issue.projectItems.nodes[0].id | select(. != null)' issue_info.json)
-          
-          if [ -z "$CARD_ID" ]; then
-            echo "No se encontró tarjeta para el issue #$ISSUE_ID"
-          else
-            echo "Tarjeta encontrada: $CARD_ID"
-            echo "cardTicketId=$CARD_ID" >> $GITHUB_OUTPUT
-          fi
+            }`;
+            const variables = {
+              owner: process.env.OWNER_NAME,
+              repo: process.env.REPO_NAME,
+              issue: parseInt(process.env.ISSUE_ID)
+            };
+            
+            try {
+              const result = await github.graphql(query, variables);
+              const items = result.repository.issue.projectItems.nodes;
+              // Buscamos específicamente el item en el proyecto llamado 'mary'
+              const targetItem = items.find(item => item.project.title === 'mary');
+              
+              if (targetItem) {
+                console.log(`ID de tarjeta encontrado: ${targetItem.id}`);
+                core.setOutput('cardTicketId', targetItem.id);
+              } else {
+                console.log("El issue no está vinculado al proyecto 'mary'");
+              }
+            } catch (error) {
+              core.setFailed(`Error en la consulta GraphQL: ${error.message}`);
+            }
 
       - name: Move to In Review
-        if: steps.getCardId.outputs.cardTicketId != ''
+        # Solo se ejecuta si cardTicketId tiene un valor real y no es nulo
+        if: steps.getCardId.outputs.cardTicketId != '' && steps.getCardId.outputs.cardTicketId != null
         env:
           PROJECT_ID: ${{ secrets.PROJECTS_MARY_PROJECT_ID }}
           FIELD_ID: ${{ secrets.PROJECT_STATUS_FIELD_ID }}

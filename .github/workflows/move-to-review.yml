@@ -8,49 +8,26 @@ jobs:
     runs-on: ubuntu-latest
     if: github.head_ref != 'main' && github.head_ref != 'develop'
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v2
-        with:
-          app_id: ${{ secrets.PROJECTS_APP_ID }}
-          private_key: ${{ secrets.PROJECTS_APP_PEM }}
-
-      - name: Find and Move Card
+      - name: Move Card
         env:
-          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          # Usamos tu nuevo PAT en lugar del token de la App
+          GH_TOKEN: ${{ secrets.MY_PROJECT_TOKEN }}
           OWNER: "ArgenioBonsanto"
-          # Tu ID global confirmado en image_1bd641.png
           PROJECT_ID: "PVT_kwHOAogtsc4BLX36"
         run: |
-          # 1. Obtener número de issue (ej: 21)
+          # 1. Obtener número de issue de la rama
           ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
           echo "Procesando Issue #$ISSUE_NUM..."
 
-          # 2. Buscar el ID de la ficha (Item ID) usando la API directamente para evitar error de "invalid number"
-          # Usamos el ID global que ya tenemos
-          ITEM_ID=$(gh api graphql -f query='
-            query($id: ID!) {
-              node(id: $id) {
-                ... on ProjectV2 {
-                  items(first: 100) {
-                    nodes {
-                      id
-                      content {
-                        ... on Issue { number }
-                      }
-                    }
-                  }
-                }
-              }
-            }' -f id="$PROJECT_ID" --jq ".data.node.items.nodes[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
+          # 2. Buscar el ID de la ficha (Item ID)
+          ITEM_ID=$(gh project item-list "$PROJECT_ID" --owner "$OWNER" --format json --jq ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
 
           if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
             echo "ERROR: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto."
             exit 1
           fi
-          echo "Ficha localizada: $ITEM_ID"
 
-          # 3. Mover a la columna 'In review' usando el ID de proyecto y el ID de ficha
+          # 3. Mover a 'In review'
           gh project item-edit --id "$ITEM_ID" --field "Status" --project-id "$PROJECT_ID" --single-select-option "In review"
           
           echo "¡Movimiento exitoso!"

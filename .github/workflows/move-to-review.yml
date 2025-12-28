@@ -6,7 +6,6 @@ on:
 jobs:
   move-to-review:
     runs-on: ubuntu-latest
-    # Se ejecuta solo si la rama no es main ni develop
     if: github.head_ref != 'main' && github.head_ref != 'develop'
     steps:
       - name: Generate token
@@ -20,31 +19,26 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
           OWNER: "ArgenioBonsanto"
-          PROJECT_NAME: "mary"
+          PROJECT_NUM: 1
         run: |
-          # 1. Extraer el número de issue del nombre de la rama (ej: 21 de 21-add-cicd)
+          # 1. Obtener número de issue
           ISSUE_NUM=$(echo "${{ github.head_ref }}" | cut -d'-' -f1)
           echo "Procesando Issue #$ISSUE_NUM..."
 
-          # 2. Obtener el ID global del proyecto buscando por nombre
-          PROJECT_ID=$(gh project list --owner "$OWNER" --format json --jq ".projects[] | select(.title == \"$PROJECT_NAME\") | .id")
-          
-          if [ -z "$PROJECT_ID" ]; then
-            echo "ERROR: No se encontró el proyecto con nombre '$PROJECT_NAME'"
-            exit 1
-          fi
-          echo "ID del Proyecto ($PROJECT_NAME) localizado: $PROJECT_ID"
-
-          # 3. Obtener el ID de la ficha (Item ID) del issue específico
-          ITEM_ID=$(gh project item-list "$PROJECT_ID" --owner "$OWNER" --format json --jq ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
+          # 2. Obtener el ID de la ficha directamente usando el número 1
+          # Usamos --owner para asegurar que busque en tu perfil personal
+          ITEM_ID=$(gh project item-list $PROJECT_NUM --owner "$OWNER" --format json --jq ".items[] | select(.content.number == ($ISSUE_NUM | tonumber)) | .id")
 
           if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" == "null" ]; then
-            echo "ERROR: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto."
+            echo "ERROR: No se encontró la ficha del issue #$ISSUE_NUM en el proyecto #$PROJECT_NUM."
+            echo "Lista de items encontrados:"
+            gh project item-list $PROJECT_NUM --owner "$OWNER"
             exit 1
           fi
-          echo "Ficha localizada con éxito: $ITEM_ID"
 
-          # 4. Mover la ficha a la columna 'In review' (basado en image_1b4bb4.png)
-          gh project item-edit --id "$ITEM_ID" --field "Status" --project-id "$PROJECT_ID" --owner "$OWNER" --single-select-option "In review"
+          echo "Ficha localizada: $ITEM_ID. Moviendo a 'In review'..."
+
+          # 3. Mover la ficha
+          gh project item-edit --id "$ITEM_ID" --field "Status" --project-number $PROJECT_NUM --owner "$OWNER" --single-select-option "In review"
           
-          echo "¡Movimiento a 'In review' completado con éxito!"
+          echo "¡Movimiento exitoso!"

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 class OthersModel(BaseModel):
     name: str
-    confidence: list[str]
+    confidence: float
     width: float
     height: float
     unit: str

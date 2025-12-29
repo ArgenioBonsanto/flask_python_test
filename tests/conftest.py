@@ -31,8 +31,8 @@ def sample_json_data():
                     "unit": "pixels",
                     "words": [
                         {"content": "Hello", "confidence": 0.95},
-                        {"content": "World", "confidence": 0.88},
-                        {"content": "Test", "confidence": 0.55}
+                        {"content": "World", "confidence": 0.91},
+                        {"content": "Test", "confidence": 0.97}
                     ]
                 },
                 {
@@ -53,7 +53,7 @@ def sample_json_data():
 def sample_others_model():
     return OthersModel(
         name="1",
-        confidence=["Test"],
+        confidence=0.9,
         width=612.0,
         height=792.0,
         unit="pixels",
@@ -65,6 +65,11 @@ def sample_page_model(sample_others_model):
     return PageModel(
         page_number=1,
         words=["Hello", "World", "Test"],
+        raw_words_data=[
+            {"content": "Hello", "confidence": 0.95},
+            {"content": "World", "confidence": 0.91},
+            {"content": "Test", "confidence": 0.97}
+        ],
         others=sample_others_model
     )
 

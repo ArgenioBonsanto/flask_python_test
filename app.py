@@ -11,6 +11,16 @@ from services.documents import Documents
 app = Flask(__name__)
 load_dotenv()
 
+@app.after_request
+def add_security_headers(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = ['https://flask-python-test-37uv.onrender.com/']
+    if origin and origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    return response
+
 @app.route('/')
 def home():
     return render_template('home.html')

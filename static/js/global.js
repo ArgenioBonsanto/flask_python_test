@@ -71,7 +71,13 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                     }
                     
                     const tr = document.createElement('tr');
-                    tr.classList.add('d-flex');
+
+                    if(data.analysis_context.length > 0) {
+                        tr.classList.add('table-warning', 'd-flex');
+                    } else {
+                        tr.classList.add('d-flex');
+                    }
+
                     // Page Number
                     createTd(tr, data.page, 'col-1');
                     // Summary
@@ -79,7 +85,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                     // Timeline
                     createTdTimeline(tr, data.timeline, 'col-4');
                     // low confidence words
-                    createTdArray(tr, data.others.confidence, 'col-3');
+                    createTd(tr, data.analysis_context, 'col-3');
                     document.getElementById("tableResults_" + doc_id).querySelector("#tableBody").appendChild(tr);
                 }
             } catch (e) {

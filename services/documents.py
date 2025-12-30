@@ -39,7 +39,7 @@ class Documents:
                     if 0.80 <= confidence <= 0.90:
                         words.append(f"[[{content}]]")
                     elif confidence < 0.80:
-                        words.append(f"{{{{content}}}}")
+                         words.append("{{" + content+ "}}")
                     else:
                         words.append(content)
 
@@ -75,7 +75,7 @@ class Documents:
                     avg_conf = page.others.confidence
                     average_quality = f"-The average OCR quality of the document is {avg_conf}\n"
                     if avg_conf < 0.90:
-                        average_quality += "[SYSTEM NOTE: This page has very low OCR quality. Critical information might be missing or distorted. Please review the document carefully.]\n"
+                        average_quality += "[SYSTEM NOTE: put in the summary field EXCLUSIVELY THE WORDS: 'the document has very low OCR quality' and put in the timeline field EXCLUSIVELY THE WORDS: '' (empty string)]\n"
                     config_lawyer = types.GenerateContentConfig(
                         system_instruction=f"""
                             -You are a helpful lawyer, analyze the text and return the main points in short.\n
@@ -141,7 +141,12 @@ class Documents:
             yield json.dumps({"error": str(e)})
 
 class Feedback(BaseModel):
-    reasoning: str = Field(description="Step-by-step reasoning used to analyze the text and extract the details. if the text is unreadable, state that the document is unreadable.")
+    reasoning: str = Field(description="""-Step-by-step reasoning used to analyze the text and extract the details.\n
+                                          -if the text is unreadable, state that the document is unreadable.\n
+                                          -If any of those values are inside [[ ]] or {{ }}, explain the document have word whit low confidence.\n
+                                          -State if the sentences have logical flow.\n
+                                          -If you cannot find a clear message, state 'Information insufficient'.\n
+                                          """)
     summary: str = Field(description="A brief summary of the content.")
     timeline: dict[str, str] = Field(description="""-A dictionary where the key is the date and the value is a description of the event.\n
                                                     -the key of the dictionary must be THE SAME DATE HOW ITS WRITE IN THE DOCUMENT.\n

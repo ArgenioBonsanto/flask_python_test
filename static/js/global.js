@@ -47,6 +47,8 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
 
                 if ('error' in textChunkJson) {
                     putError(textChunkJson.error);
+                    document.getElementById("uploadFile").classList.remove("disabled");
+                    document.getElementById("spinner").classList.add("d-none");
                     break;
                 }
                 

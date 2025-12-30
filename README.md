@@ -11,7 +11,7 @@ This project is a web application developed with **Flask** designed to receive a
 
 ## Prerequisites
 
-- Python 3.x
+- Python 3.9 or later
 - A Google Gemini API Key.
 
 ## Installation

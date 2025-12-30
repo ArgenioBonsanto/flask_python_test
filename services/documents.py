@@ -28,12 +28,12 @@ class Documents:
         document_list = []
         for doc in data:
             pages = []
-            for page in doc.get("content", []):
+            for page in doc.get("content"):
                 num_page = page.get("page_number")
                 words = []
                 confidence_amount = 0;
-                for word_info in page.get("words", []):
-                    content = word_info.get("content", "")
+                for word_info in page.get("words"):
+                    content = word_info.get("content")
                     confidence = word_info.get("confidence")
                     confidence_amount += confidence
                     if 0.80 <= confidence <= 0.90:
@@ -54,7 +54,7 @@ class Documents:
                 
                 page_model = PageModel(page_number=num_page, 
                                         words=words, 
-                                        raw_words_data=page.get("words", []),
+                                        raw_words_data=page.get("words"),
                                         others=others)
 
                 pages.append(page_model)
@@ -134,7 +134,12 @@ class Documents:
     def generate_stream(self, filepath, modelSelect):
         try:
             json_data = self.convert_documents_to_json(filepath)
-            documents = self.convert_json_to_documents(json_data)
+            try:
+                documents = self.convert_json_to_documents(json_data)
+            except Exception as e:
+                yield json.dumps({"error": "Invalid JSON format"})
+                return
+            
             for chunk in self.analize_documents(documents, modelSelect):
                 yield chunk
         except Exception as e:

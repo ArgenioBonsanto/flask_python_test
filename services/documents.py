@@ -3,16 +3,19 @@ import json
 from google import genai
 from google.genai import types
 from google.genai import errors
-from pydantic import BaseModel, Field
 from flask import stream_with_context
 from models.others_model import OthersModel
 from models.page_model import PageModel
 from models.document_model import DocumentModel
+from models.evaluation_model import EvaluationModel
+from models.feedback_model import FeedbackModel
+from flask import current_app
 
 
 class Documents:
 
     def convert_documents_to_json(self, filepath):
+        current_app.logger.info(f"Converting document to JSON: {filepath}")
         try:
             with open(filepath, 'r') as f:
                 json_data = json.load(f)
@@ -95,7 +98,7 @@ class Documents:
                             {average_quality}
                         """,
                         response_mime_type="application/json",
-                        response_json_schema=Feedback.model_json_schema(),
+                        response_json_schema=FeedbackModel.model_json_schema(),
                         seed=26
                     )
 
@@ -120,6 +123,11 @@ class Documents:
                     result["page"] = page.page_number
                     result["others"] = page.others.model_dump()
                     result["doc_id"] = document.doc_id
+
+                    evaluation = self.evaluate_response(client, model, " ".join(page.words), result["summary"])
+                    if evaluation:
+                        result["evaluation"] = evaluation.model_dump()
+
                     yield json.dumps({"result": result})
 
                     # break
@@ -129,6 +137,45 @@ class Documents:
             yield json.dumps({"error": "You exceeded your current quota, please check your plan and billing details."})
         except Exception as e:
             yield json.dumps({"error": str(e)})
+
+    def evaluate_response(self, client, model, source_text, generated_summary):
+        try:
+            config_judge = types.GenerateContentConfig(
+                system_instruction="""
+                    You are an expert legal auditor. Your task is to evaluate the faithfulness and accuracy of a summary and reasoning against a source legal text.
+                    
+                    Evaluation Criteria:
+                    1. Faithfulness: Is every statement in the generated response supported by the source text?
+                    2. Hallucinations: Does the response include information not present in the source?
+                    
+                    Return your evaluation as a JSON object following the EvaluationModel schema.
+                """,
+                response_mime_type="application/json",
+                response_json_schema=EvaluationModel.model_json_schema(),
+                seed=26
+            )
+
+            prompt = f"""
+                SOURCE TEXT:
+                {source_text}
+                
+                GENERATED RESPONSE TO EVALUATE:
+                Summary: {generated_summary}
+            """
+
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=config_judge
+            )
+
+            if response.text:
+                return EvaluationModel.model_validate_json(response.text)
+            return None
+
+        except Exception as e:
+            print(f"Evaluation failed: {str(e)}")
+            return None
 
     @stream_with_context
     def generate_stream(self, filepath, modelSelect):
@@ -145,19 +192,3 @@ class Documents:
         except Exception as e:
             yield json.dumps({"error": str(e)})
 
-class Feedback(BaseModel):
-    reasoning: str = Field(description="""-Step-by-step reasoning used to analyze the text and extract the details.\n
-                                          -if the text is unreadable, state that the document is unreadable.\n
-                                          -If any of those values are inside [[ ]] or {{ }}, explain the document have word whit low confidence.\n
-                                          -State if the sentences have logical flow.\n
-                                          -If you cannot find a clear message, state 'Information insufficient'.\n
-                                          """)
-    summary: str = Field(description="A brief summary of the content.")
-    timeline: dict[str, str] = Field(description="""-A dictionary where the key is the date and the value is a description of the event.\n
-                                                    -the key of the dictionary must be THE SAME DATE HOW ITS WRITE IN THE DOCUMENT.\n
-                                                    -Don't change the words what you put in the key of the dictionary, example (14-Oct-2023, 14/10/2023, 14 octuber 2023, 16th MAY 1974).\n
-                                                    -Don't include hours in the key of the dictionary
-                                                """) 
-    analysis_context: str = Field(description="""Compare your summary with the contents of the document, 
-                                                 if there are any contradictions, explain them. if not DONT RETURN ANYTHING,
-                                                 Don't include nothing about curly brackets or brackets""")

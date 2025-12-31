@@ -23,10 +23,12 @@ def add_security_headers(response):
 
 @app.route('/')
 def home():
+    app.logger.info("Page [home]")
     return render_template('home.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    app.logger.info("Page [upload]")
     if request.method == 'POST':
         modelSelect = request.form.get('modelSelect')
         

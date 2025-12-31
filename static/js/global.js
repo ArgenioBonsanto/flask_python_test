@@ -83,11 +83,13 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                     // Page Number
                     createTd(tr, data.page, 'col-1');
                     // Summary
-                    createTd(tr, data.summary, 'col-4');
+                    createTd(tr, data.summary, 'col-3');
                     // Timeline
-                    createTdTimeline(tr, data.timeline, 'col-4');
+                    createTdTimeline(tr, data.timeline, 'col-3');
                     // low confidence words
-                    createTd(tr, data.analysis_context, 'col-3');
+                    createTd(tr, data.analysis_context, 'col-2');
+                    // Evaluation
+                    createTdTimeline(tr, data.evaluation, 'col-3');
                     document.getElementById("tableResults_" + doc_id).querySelector("#tableBody").appendChild(tr);
                 }
             } catch (e) {

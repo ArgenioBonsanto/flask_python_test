@@ -169,7 +169,7 @@ class Documents:
 
                     # break
                 # break
-
+    #change to test
         except errors.ClientError as e:
             yield json.dumps({"error": "You exceeded your current quota, please check your plan and billing details."})
         except Exception as e:
